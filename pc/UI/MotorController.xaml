@@ -1,0 +1,8 @@
+﻿<my:RobotComponentUserControl x:Class="MongooseSoftware.Robotics.UI.MotorController"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:my="clr-namespace:MongooseSoftware.Robotics.UI"
+    MouseUp="UserControl_MouseUp" MouseMove="UserControl_MouseMove" MinHeight="150" MinWidth="150">
+    
+    <Ellipse Grid.Column="2" Fill="Green" Width="10px" Height="10px" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10" Name="stateEllipse"/>
+</my:RobotComponentUserControl>

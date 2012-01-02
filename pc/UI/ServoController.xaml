@@ -1,0 +1,21 @@
+﻿<my:RobotComponentUserControl x:Class="MongooseSoftware.Robotics.UI.ServoController"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
+    xmlns:my="clr-namespace:MongooseSoftware.Robotics.UI"
+    MinHeight="200" MinWidth="200" >
+    <Grid Margin="20,20,20,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="25*" />
+            <RowDefinition Height="25*" />
+            <RowDefinition Height="25*" />
+            <RowDefinition Height="25*" />
+            <RowDefinition Height="25*" />
+        </Grid.RowDefinitions>
+        <Slider Name="_horizontalSlider" Minimum="-90" Maximum="90" IsSnapToTickEnabled="False" TickPlacement="TopLeft" TickFrequency="10" Margin="0,0,0,0" Value="{Binding Path=PanAngle}" />
+        <Label Grid.Row="1" Margin="0,0,0,2" Name="label1" HorizontalAlignment="Center">Horizontal Angle</Label>
+        <Slider Name="_verticalSlider" Minimum="-90" Maximum="90" Grid.Row="2" Grid.Column="0" TickFrequency="10" TickPlacement="TopLeft" Margin="0,0,0,0" Value="{Binding Path=TiltAngle}"/>
+        <Label Grid.Row="3" Margin="0,0,0,2" Name="label2" HorizontalAlignment="Center">Vertical Angle</Label>
+        <Label Grid.Row="5" Margin="0,0,0,0" Name="label3" VerticalContentAlignment="Bottom" HorizontalContentAlignment="Center">Servo Controller</Label>
+        <Ellipse Grid.Row="5" Fill="Green" Width="10px" Height="10px" HorizontalAlignment="Right" VerticalAlignment="Bottom" Name="stateEllipse"/>
+    </Grid>
+</my:RobotComponentUserControl>
