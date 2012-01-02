@@ -2,8 +2,6 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UI", "UI\UI.csproj", "{D3B122BF-75F6-4F11-A431-9EBDFF778EB3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestHarness", "TestHarness\TestHarness.csproj", "{2679E84E-81A0-4490-B1E9-F972E8B9B68B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobotLib", "RobotLib\RobotLib.csproj", "{28C1E294-AFC3-48C2-97D6-243EC0BECE16}"
 EndProject
 Global
@@ -16,10 +14,6 @@ Global
 		{D3B122BF-75F6-4F11-A431-9EBDFF778EB3}.Debug|x86.Build.0 = Debug|x86
 		{D3B122BF-75F6-4F11-A431-9EBDFF778EB3}.Release|x86.ActiveCfg = Release|x86
 		{D3B122BF-75F6-4F11-A431-9EBDFF778EB3}.Release|x86.Build.0 = Release|x86
-		{2679E84E-81A0-4490-B1E9-F972E8B9B68B}.Debug|x86.ActiveCfg = Debug|x86
-		{2679E84E-81A0-4490-B1E9-F972E8B9B68B}.Debug|x86.Build.0 = Debug|x86
-		{2679E84E-81A0-4490-B1E9-F972E8B9B68B}.Release|x86.ActiveCfg = Release|x86
-		{2679E84E-81A0-4490-B1E9-F972E8B9B68B}.Release|x86.Build.0 = Release|x86
 		{28C1E294-AFC3-48C2-97D6-243EC0BECE16}.Debug|x86.ActiveCfg = Debug|x86
 		{28C1E294-AFC3-48C2-97D6-243EC0BECE16}.Debug|x86.Build.0 = Debug|x86
 		{28C1E294-AFC3-48C2-97D6-243EC0BECE16}.Release|x86.ActiveCfg = Release|x86

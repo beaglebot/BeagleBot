@@ -37,9 +37,6 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
         ConnectionError
     }
 
-    /// <summary>
-    /// Provides access to a remote I2C bus on a machine running i2cproxy.
-    /// </summary>
     public class I2CChannel : II2CChannel
     {
         #region Constants
