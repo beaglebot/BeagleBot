@@ -3,6 +3,9 @@ UVCSTREAMER
 
 Copyright (C) 2012 Ben Galvin
 
+Based on code from the V4L2 sample: 
+http://v4l2spec.bytesex.org/spec/capture-example.html
+
 Streams raw or MJPEG compressed frames from a UVC webcam over TCP/IP. The
 stream consists of a sequence of images, where an image is defined as an 
 image header followed by the raw image data. The image header is defined 
@@ -10,6 +13,7 @@ in network.c.
 
 See
 http://yetanotherhackersblog.wordpress.com/2012/01/02/beaglebot-a-board-based-robot/
+
 
 
 
