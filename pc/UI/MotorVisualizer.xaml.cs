@@ -103,6 +103,7 @@ namespace MongooseSoftware.Robotics.UI
 
         protected override void  Component_PropertyChanged(object sender, PropertyChangedEventArgs args)
         {
+            base.Component_PropertyChanged(sender, args);
             switch (args.PropertyName)
             {
                 case "LeftMotorSpeed":

@@ -1,7 +1,7 @@
 /*
  *  powersupply.c
  *
- *  Exposes the charging state of two BQ24123 LiPo charger ICs over and I2C interface.
+ *  Exposes the charging state of two BQ24123 LiPo charger ICs over an I2C interface.
  *
  *  Copyright (C) Ben Galvin 2012
  *
@@ -9,8 +9,9 @@
  *
  *  Microcontroller Pin Setup
  *  =========================
+ *  NOTE: The PG and STAT pins on the BQ24123 are all open collector, so 0V => High, 5V => Low.
  *  PIN5/PA0:           CEA (output)
- *  PIN6/PD2:           PGA
+ *  PIN6/PD2:           PGA 
  *  PIN7/PD3/INT1:      STAT1A
  *  PIN8/PD4:           STAT2A
  *  PIN13/PB1:          CEB (output)
@@ -22,21 +23,27 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <util/delay_basic.h>
+#include <util/delay.h>
 #include <stdbool.h>
 #include "../common/usi_slave.h"
 
 
 #define I2C_SLAVE_ADDR  0x30
-#define NUM_SECONDS_TO_DISABLE_AFTER_CHARGE (10*60)
+#define NUM_SECONDS_TO_DISABLE_AFTER_CHARGE (20*60)
 
 
 /* Globals */
-bool charger_a_disabled_by_i2c = false;
-volatile uint16_t charger_a_disabled_counter = 0;
+volatile uint32_t time_in_seconds = 0;
 
-bool charger_b_disabled_by_i2c = false;
+bool charger_a_is_charging;
+uint32_t charger_a_finished_timestamp = 0xFFFFFFFF;
+volatile uint32_t charger_a_disabled_counter = 0;
+bool charger_a_disabled_by_i2c = false;
+
+bool charger_b_is_charging;
+uint32_t charger_b_finished_timestamp = 0xFFFFFFFF;
 volatile uint16_t charger_b_disabled_counter = 0;
+bool charger_b_disabled_by_i2c = false;
 
 
 /* Returns the state of charger A. */
@@ -50,6 +57,7 @@ uint8_t get_status_a()
     if ((PINA & (1 << PA0)) == 0) status |= (1 << 3);
     if (charger_a_disabled_counter != 0) status |= (1 << 4);
     if (charger_a_disabled_by_i2c != 0) status |= (1 << 5);
+	if (charger_a_finished_timestamp != 0xFFFFFFFF) status |= (1 << 6);
 
     return status;
 }
@@ -65,50 +73,58 @@ uint8_t get_status_b()
     if ((PINB & (1 << PB1)) == 0) status |= (1 << 3);
     if (charger_b_disabled_counter != 0) status |= (1 << 4);
     if (charger_b_disabled_by_i2c != 0) status |= (1 << 5);
+	if (charger_b_finished_timestamp != 0xFFFFFFFF) status |= (1 << 6);
 
     return status;
 }
 
-/* Disables or enables charger A. */
+/* Disables or enables charger A through I2C. */
 void set_charger_a_disabled(uint8_t is_disabled)
 {
-    if (is_disabled)
-    {
-        /* Set the pin high. */
-        PORTA |= (1 << PA0);
-        DDRA |= (1 << PA0);
+    if (is_disabled) {
+
         charger_a_disabled_by_i2c = true;
         charger_a_disabled_counter = 0;
-    }
-    else
-    {
-        /* Set it back to HiZ. */
+		charger_a_finished_timestamp = 0xFFFFFFFF;
+
+        /* Set CEA high. */
+        PORTA |= (1 << PA0);
+        DDRA |= (1 << PA0);
+
+    } else {
+
+        charger_a_disabled_by_i2c = false;
+        charger_a_disabled_counter = 0;
+		charger_a_finished_timestamp = 0xFFFFFFFF;
+		
+		/* Set CEA back to HiZ. */
         DDRA &= ~(1 << PA0);
         PORTA &= ~(1 << PA0);
-        charger_a_disabled_counter = 0;
-        charger_a_disabled_by_i2c = false;
     }
-
 }
 
-/* Disables or enables charger B. */
+/* Disables or enables charger B through I2C. */
 void set_charger_b_disabled(uint8_t is_disabled)
 {
-    if (is_disabled)
-    {
-        /* Set the pin high. */
-        PORTB |= (1 << PB1);
-        DDRB |= (1 << PB1);
+    if (is_disabled) {
+
         charger_b_disabled_by_i2c = true;
         charger_b_disabled_counter = 0;
-    }
-    else
-        {
-        /* Set it back to HiZ. */
-        DDRB &= ~(1 << PB1);
-        PORTB &= ~(1 << PB1);
+		charger_b_finished_timestamp = 0xFFFFFFFF;
+
+        /* Set CEB high. */
+        PORTB |= (1 << PB1);
+        DDRB |= (1 << PB1);
+
+    } else {
+
         charger_b_disabled_counter = 0;
         charger_b_disabled_by_i2c = false;
+		charger_b_finished_timestamp = 0xFFFFFFFF;
+
+        /* Set CEB back to HiZ. */
+        DDRB &= ~(1 << PB1);
+        PORTB &= ~(1 << PB1);
     }
 }
 
@@ -183,52 +199,90 @@ int main()
 
 
 
-/* See if charging has just completed for supply A. If it has, prevent recharging from starting for another
- * 10 minutes. Without this if their is significant system load it will pull the battery voltage down enough
- * to trigger another charging cycle within a second of charging finishing.
+/* This interrupt is used to detect and stop the following situation:
+ * 1. Charging completes on the battery (STAT2 high, STAT1 low).
+ * 2. The charger stops supplying power, and the battery now starts supplying power to the robot.
+ * 3. If the circuit draw a sufficiently high current (eg > 500mA) this will drop the battery's voltage to below the charging threshold.
+ * 4. Charger sees the voltage drop below the threshold and starts charging again (usuaully within a second of step 1).
+ * This charging loop effectively results in charging not stopping if the circuit puts a high load on the battery. The logic below
+ * captures the time when charging stops, then if the time when the next charge starts is too close, it disables charging for 10 minutes.
  */
 ISR(INT1_vect)
 {
-    /* If STAT2 is on and STAT1 is off, charging has just completed. */
-    if (!(PIND & (1 << PD4)) && (PIND & (1 << PD3)))
-    {
-        /* Pull CEA low */
-        PORTA |= (1 << PA0);
-        DDRA |= (1 << PA0);
+	/* If PGA is off, ignore it */
+	if (!(PIND & (1 << PD2))) {
 
-        charger_a_disabled_counter = NUM_SECONDS_TO_DISABLE_AFTER_CHARGE;
-    }
+		/* If the charger has just finished or is in an error state (ie STAT1 is off), record the time. */
+		if (charger_a_is_charging && (PIND & (1 << PD3))) {
+			charger_a_finished_timestamp = time_in_seconds;
+		}
+		/* Otherwise, if the charger has just started (ie STAT1 is on and STAT2 is off) */
+		else if (!(PIND & (1 << PD3)) && (PIND & (1 << PD4))) {
+
+			/* Check the charger has started charging within 1 minute of it finishing */
+			if (charger_a_finished_timestamp != 0xFFFFFFFF && 
+			    time_in_seconds - charger_a_finished_timestamp < 60) {
+
+				/* Looks like it has, so disable the charger for 10 minutes. Pull CEA high. */
+		        PORTA |= (1 << PA0);
+		        DDRA |= (1 << PA0);
+
+		        charger_a_disabled_counter = NUM_SECONDS_TO_DISABLE_AFTER_CHARGE;
+			}
+		}
+	}
+	charger_a_is_charging = (PIND & (1 << PD3)) == 0;
 }
 
 /* As above, but for supply B. */
 ISR(PCINT_vect)
 {
-    if (!(PINB & (1 << PB4)) && (PINB & (1 << PB3)))
-    {
-        // Pull CEB low.
-        PORTB |= (1 << PB1);
-        DDRB |= (1 << PB1);
+	/* If PGB is off, ignore it */
+	if (!(PINB & (1 << PB2))) {
 
-        charger_b_disabled_counter = NUM_SECONDS_TO_DISABLE_AFTER_CHARGE;
-    }
+		/* If the charger has just finished or is in an error state (ie STAT1 is off), record the time. */
+		if (charger_b_is_charging && (PINB & (1 << PB3))) {
+			charger_b_finished_timestamp = time_in_seconds;
+		}
+		/* Otherwise, if the charger has just started (ie STAT1 is on and STAT2 is off) */
+		else if (!(PINB & (1 << PB3)) && (PINB & (1 << PB4))) {
+
+			/* Check the charger has started charging within 1 minute of it finishing */
+			if (charger_b_finished_timestamp != 0xFFFFFFFF && 
+			    time_in_seconds - charger_b_finished_timestamp < 60) {
+
+				/* Looks like it has, so disable the charger for 10 minutes. Pull CEB high. */
+		        PORTB |= (1 << PB1);
+		        DDRB |= (1 << PB1);
+
+	        	charger_b_disabled_counter = NUM_SECONDS_TO_DISABLE_AFTER_CHARGE;
+			}
+		}
+	}
+	charger_b_is_charging = (PINB & (1 << PB3)) == 0;
 }
 
 /* Triggered every second. Used to decrement the charger_(a|b)_disabled_counter variables. */
 ISR(TIMER1_COMPA_vect)
 {
+	time_in_seconds++;
 
     if (charger_a_disabled_counter > 0)
     {
         charger_a_disabled_counter--;
-        if (charger_a_disabled_counter == 0 && charger_a_disabled_by_i2c)
-            set_charger_a_disabled(0);
+        if (charger_a_disabled_counter == 0 && !charger_a_disabled_by_i2c) {
+	        DDRA &= ~(1 << PA0);
+	        PORTA &= ~(1 << PA0);
+		}
     }
 
     if (charger_b_disabled_counter > 0)
     {
         charger_b_disabled_counter--;
-        if (charger_b_disabled_counter == 0 && charger_b_disabled_by_i2c)
-            set_charger_b_disabled(0);
+        if (charger_b_disabled_counter == 0 && !charger_b_disabled_by_i2c) {
+        	DDRB &= ~(1 << PB1);
+        	PORTB &= ~(1 << PB1);
+		}
     }
 
 }
