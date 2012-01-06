@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -g
-OBJECTS = i2cproxy.o ../common/i2c.o linereader.o commands.o pollrecord.o pollcommands.o \
+OBJECTS = i2cproxy.o ../common/i2c.o linereader.o commands.o prlist.o pollcommands.o \
 		  ../common/utils.o ../common/network_utils.o
 
 i2cproxy: $(OBJECTS)

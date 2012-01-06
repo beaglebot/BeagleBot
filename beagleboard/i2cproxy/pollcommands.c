@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <math.h>
 #include "pollcommands.h"
-#include "pollrecord.h"
+#include "prlist.h"
 
 #define POLL_BUFFER_SIZE 4000
 #define SMALL_TIME_PERIOD 20
@@ -37,6 +37,7 @@ void process_add_poll_command(const char *command, char *reply, int reply_size)
 	}
 
 	record = (struct poll_record*)malloc(sizeof(struct poll_record));
+	record->id = 0;
 	record->delay = delay;
 	record->address = address;
 	record->reg = reg;

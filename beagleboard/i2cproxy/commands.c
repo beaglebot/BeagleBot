@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "commands.h"
-#include "pollrecord.h"
+#include "prlist.h"
 
 void process_ping_command(const char *command, char *reply, int reply_size)
 {
