@@ -62,8 +62,8 @@ void receive_one_line()
 
 	assert(!failed);
 	assert(strcmp(result,"test\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }
@@ -85,8 +85,8 @@ void one_line_in_multiple_pieces()
 
 	assert(!failed);
 	assert(strcmp(result,"test\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }
@@ -106,20 +106,20 @@ void receive_multiple_lines_at_once()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test1\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 	
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test2\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test3\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 	
 	close_reader(&reader);
 }
@@ -142,14 +142,14 @@ void wrap_around()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 	
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"12345678\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }
@@ -169,8 +169,8 @@ void fill_buffer()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"123456789\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 	
 	close_reader(&reader);
 }
@@ -192,14 +192,14 @@ void wrap_around_and_fill_buffer()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"ab\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"123456789\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }
@@ -220,14 +220,14 @@ void to_the_end_of_the_buffer()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"TEST\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }
@@ -288,8 +288,8 @@ void result_buffer_too_small_double_segment()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"1234\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 
 	failed = read_line(&reader, result, sizeof(result));
 	assert(failed == 2);
@@ -314,20 +314,20 @@ void wrap_around2()
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"test\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 	
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"12\n") == 0);
-	assert(!isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(!is_empty(&reader));
+	assert(!is_full(&reader));
 
 	failed = read_line(&reader, result, sizeof(result));
 	assert(!failed);
 	assert(strcmp(result,"3456\n") == 0);
-	assert(isEmpty(&reader));
-	assert(!isFull(&reader));
+	assert(is_empty(&reader));
+	assert(!is_full(&reader));
 
 	close_reader(&reader);
 }

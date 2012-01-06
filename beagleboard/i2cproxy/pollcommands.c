@@ -17,9 +17,9 @@
 
 struct poll_thread_args
 {
-		int bus;
-		int port;
-		bool verbose;
+	int bus;
+	int port;
+	bool verbose;
 };
 
 void process_add_poll_command(const char *command, char *reply, int reply_size)
@@ -37,13 +37,15 @@ void process_add_poll_command(const char *command, char *reply, int reply_size)
 	}
 
 	record = (struct poll_record*)malloc(sizeof(struct poll_record));
-	record->id = poll_record_next_free_id++;
 	record->delay = delay;
 	record->address = address;
 	record->reg = reg;
 	record->num_regs_to_read = num_regs_to_read;
 	record->next_poll_time = 0;
-	insert_poll_record(record);
+
+	pr_lock("papc");	
+	pr_insert(record);
+	pr_unlock();
 
 	sprintf(reply, "OK %d\r\n", record->id);
 }
@@ -60,17 +62,18 @@ void process_remove_poll_command(const char *command, char *reply, int reply_siz
 		return;
 	}
 
-	record = find_poll_record(id_to_remove);
-	if (!record) {
-		fprintf(stderr, "ERROR => Couldn't find poll record %d.\n", id_to_remove);
+	pr_lock("prpc");
+	record = pr_find(id_to_remove);
+	if (record) {
+		pr_remove(record);
+		free(record);
+		strcpy(reply, "OK\r\n");
+	} else {
+		fprintf(stderr, "ERROR => Couldn't find record with id %d.\n", id_to_remove);
 		strcpy(reply, "ERROR\r\n");
-		return;
 	}
-	
-	remove_poll_record(record);
-	free(record);
+	pr_unlock();
 
-	strcpy(reply, "OK\r\n");
 }
 
 void process_poll_connection(int con, int i2c_handle)
@@ -81,26 +84,27 @@ void process_poll_connection(int con, int i2c_handle)
 	char result[1000], response_buffer[POLL_BUFFER_SIZE], s[18];
 	long time_till_next_run;
 
-	// Repeat until the connection is closed.
+	/* Repeat until the connection is closed. */
 	while (1)
 	{
 		response_buffer[0] = 0;
 		response_buffer_count = 0;
 
-		// Loop until there are no more PollRecords due to run.
-		while (current = get_head_poll_record()) {
+		/* Loop until there are no more PollRecords due to run. */
+		pr_lock("ppc");
+		while (current = pr_get_head()) {
 
-			// Is the poll_record at the head of the list not due to run?
+			/* Is the poll_record at the head of the list not due to run yet? */
 			if (current && current->next_poll_time > get_time_in_ms() + SMALL_TIME_PERIOD) break;
 
 			snprintf(result, sizeof(result), "%d: ", current->id);
 			result_length = strlen(result);
 
-			// Query the I2C values.	
+			/* Query the I2C values. */
 			read_i2c_multiple_as_string(i2c_handle, current->address, current->reg, current->num_regs_to_read, 
 					&result[result_length], sizeof(result) - result_length);
 
-			// Add the string to the result_buffer, to be sent out over the network later.	
+			/* Add the string to the result_buffer, to be sent out over the network later. */
 			result_length = strlen(result);
 			if (response_buffer_count + result_length >= sizeof(response_buffer)) {
 				fprintf(stderr, "ERROR => Poll buffer overrun.");
@@ -109,7 +113,7 @@ void process_poll_connection(int con, int i2c_handle)
 			strcpy(&response_buffer[response_buffer_count], result);
 			response_buffer_count += result_length;
 			
-			// Calculate the new poll time.
+			/* Calculate the new poll time. */
 			current->next_poll_time += current->delay;
 			time_till_next_run = current->next_poll_time - get_time_in_ms();
 			if (time_till_next_run < SMALL_TIME_PERIOD) {
@@ -117,10 +121,14 @@ void process_poll_connection(int con, int i2c_handle)
 				fprintf(stderr, "WARNING: had to skip %d polls for poll ID %d\n", num_periods, current->id);
 				current->next_poll_time += num_periods * current->delay;
 			}
-			update_poll_record_order(current);
+		
+			/* Reinsert the record at the appropriate place in the list */	
+			pr_remove(current);
+			pr_insert(current);
 		}
+		pr_unlock();
 
-		// If the buffer isn't empty, send it to the client.
+		/* If the buffer isn't empty, send it to the client. */
 		if (response_buffer_count > 0) {
 			num_sent = send(con, response_buffer, response_buffer_count, MSG_NOSIGNAL);
 			if (num_sent == -1) {
@@ -129,7 +137,7 @@ void process_poll_connection(int con, int i2c_handle)
 			}
 		}
 
-		// How long to the next poll_record is due to run?
+		/* How long to the next poll_record is due to run? */
 		if (current) {
 			delay = (current->next_poll_time - get_time_in_ms()) * 1000;
 		}
@@ -201,7 +209,10 @@ void *poll_thread_main(void *args)
 	close(sock);
 
 	if (verbose) printf("Removing poll records\n");
-	remove_all_poll_records();
+
+	pr_lock("ptm");
+	pr_clear_and_free_all();
+	pr_unlock();
 
 	printf("Closing poll thread\n");
 }

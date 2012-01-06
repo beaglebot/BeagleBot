@@ -27,7 +27,7 @@ namespace MongooseSoftware.Robotics.RobotLib
         protected Robot()
         {
             watchdogThread = new Thread(WatchDogThreadMain) {Name = "Robot Watchdog", IsBackground = true};
-            watchdogThread.Start();
+            //watchdogThread.Start();
         }
 
 

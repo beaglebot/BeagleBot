@@ -75,9 +75,13 @@ namespace MongooseSoftware.Robotics.RobotLib.Components
             switch (register)
             {
                 case CompassRegisters.DataXMsb:
-                    CompassX = ToSigned16Bit(values[1], values[0]) * CompassResolution;
-                    CompassZ = ToSigned16Bit(values[3], values[2]) * CompassResolution;
-                    CompassY = ToSigned16Bit(values[5], values[4]) * CompassResolution;
+                    var x = ToSigned16Bit(values[1], values[0]) * CompassResolution; 
+                    var y = ToSigned16Bit(values[3], values[2]) * CompassResolution;
+                    var z = ToSigned16Bit(values[5], values[4]) * CompassResolution;
+                    if (x == CompassX && y == CompassY && z == CompassZ) break;
+                    CompassX = x;
+                    CompassZ = y;
+                    CompassY = z;
                     OnNotifyPropertyChanged("CompassX");
                     OnNotifyPropertyChanged("CompassY");
                     OnNotifyPropertyChanged("CompassZ");

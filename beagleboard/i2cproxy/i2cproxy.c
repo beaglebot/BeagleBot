@@ -18,7 +18,6 @@
 
 void show_usage()
 {
-	printf("\n");
 	printf("USAGE: i2cproxy -p {port} -b {bus} [-v] [-d] [-l path]\n");
 	printf("where {port} is the port number which the application will listen on\n");
 	printf("      {bus} is the number of the i2c bus\n");
@@ -58,7 +57,7 @@ void read_args(int argc, char *argv[], int *port, int *bus, bool *daemonize, boo
 			 exit(1);
            }
 
-	// Check all mandatory arguments were supplied.
+	/* Check all mandatory arguments were supplied. */
 	if (*port == -1 || *bus == -1) {
 		show_usage();
 		exit(1);
@@ -112,7 +111,7 @@ void process_command_connection(int con, int i2c_handle, bool verbose)
 		int result = read_line(&reader, request, sizeof(request));
 		if (result != 0) break;
 
-		// Get rid of any trailing \r or \n.
+		/* Get rid of any trailing \r or \n. */
 		back = request + strlen(request) - 1;
 		while (back >= request && (*back == '\n' || *back == '\r'))
 			*(back--) = 0;
@@ -199,7 +198,9 @@ void process_command_connections(int port, int bus, bool verbose)
 		close(con);
 
 		printf("Removing all poll records\n");
-		remove_all_poll_records();
+		pr_lock("pcc");
+		pr_clear_and_free_all();
+		pr_unlock();
 	}
 
 	printf("Closing command socket\n");
@@ -225,7 +226,7 @@ int main(int argc, char *argv[])
 	read_args(argc, argv, &port, &bus, &daemonize, &verbose, log_path, sizeof(log_path));
 	if (daemonize) daemonize_process(log_path);
 
-	init_poll_record_list();
+	pr_init();
 	start_poll_thread(port + 1, bus, verbose);
 
 	process_command_connections(port, bus, verbose);

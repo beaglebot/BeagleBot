@@ -15,12 +15,15 @@ struct poll_record
 	struct poll_record *next;
 } ;
 
-void init_poll_record_list();
-struct poll_record *get_head_poll_record();
-void insert_poll_record(struct poll_record *record);
-struct poll_record *find_poll_record(int id);
-void remove_poll_record(struct poll_record *record);
-void remove_all_poll_records();
-void update_poll_record_order(struct poll_record *record);
+void pr_init();
+
+void pr_lock();
+void pr_unlock();
+
+struct poll_record *pr_get_head();
+void pr_insert(struct poll_record *record);
+void pr_remove(struct poll_record *record);
+struct poll_record *pr_find(int id);
+void pr_clear_and_free_all();
 
 #endif
