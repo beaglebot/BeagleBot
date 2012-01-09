@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Microsoft.DirectX.DirectInput;
 using System.Diagnostics;
 using System.Threading;
 
 namespace MongooseSoftware.Robotics.RobotLib
 {
+    /// <summary>
+    /// Requires Microsoft.DirectX.DirectInput reference.
+    /// </summary>
 	public class Joystick
     {
         #region Constructors
@@ -26,7 +28,7 @@ namespace MongooseSoftware.Robotics.RobotLib
 		{
 			// Find all the GameControl devices that are attached.
             // NOTE: If the debugger stops here with a 'LoaderLock' exception, just exclude the exception in Debug->Exceptions->Managed Debugging Assistants->Loader Lock.
-			DeviceList gameControllerList = Manager.GetDevices(DeviceClass.GameControl, EnumDevicesFlags.AttachedOnly);
+			/*DeviceList gameControllerList = Manager.GetDevices(DeviceClass.GameControl, EnumDevicesFlags.AttachedOnly);
 
 			// check that we have at least one device.
 			if (gameControllerList.Count == 0) return;
@@ -43,7 +45,7 @@ namespace MongooseSoftware.Robotics.RobotLib
 			joystickDevice.SetDataFormat(DeviceDataFormat.Joystick);
 
 			// Finally, acquire the device.
-			joystickDevice.Acquire();
+			joystickDevice.Acquire();*/
 
             IsConnected = true;
 		}
@@ -65,10 +67,11 @@ namespace MongooseSoftware.Robotics.RobotLib
 
         public void GetCapabilities()
         {
+            /*
             DeviceCaps cps = joystickDevice.Caps;
             Debug.WriteLine("Joystick Axis: " + cps.NumberAxes);
             Debug.WriteLine("Joystick Buttons: " + cps.NumberButtons);
-            Debug.WriteLine("Joystick PoV hats: " + cps.NumberPointOfViews);
+            Debug.WriteLine("Joystick PoV hats: " + cps.NumberPointOfViews);*/
         }
 
         #endregion
@@ -84,24 +87,24 @@ namespace MongooseSoftware.Robotics.RobotLib
 
 		public int X
 		{
-			get { return state.X; }
+            get { return 0; } // state.X; }
 		}
 
 		public int Y
 		{
-			get { return state.Y; }
+            get { return 0; } // state.Y; }
 		}
 
         public bool Trigger
         {
-            get { return state.GetButtons()[0] >= 128; }
+            get { return false; } // state.GetButtons()[0] >= 128; }
         }
 
         public int? PointOfView
         {
             get 
-            { 
-                int x = state.GetPointOfView()[0];
+            {
+                int x = -1; // state.GetPointOfView()[0];
                 if (x == -1) return null;
                 return x / 100;
             }
@@ -134,6 +137,7 @@ namespace MongooseSoftware.Robotics.RobotLib
 
         private void Poll()
         {
+            /*
 			// Get the new state.
             JoystickState oldState = state;
             joystickDevice.Poll();
@@ -147,7 +151,7 @@ namespace MongooseSoftware.Robotics.RobotLib
 
 			// Is the point-of-view hat pressed?
             int[] statePointOfView = state.GetPointOfView();
-			if (statePointOfView != null && statePointOfView[0] != -1 && PointOfViewPressed != null) PointOfViewPressed(this, EventArgs.Empty);
+			if (statePointOfView != null && statePointOfView[0] != -1 && PointOfViewPressed != null) PointOfViewPressed(this, EventArgs.Empty);*/
         }
 
 
@@ -160,8 +164,8 @@ namespace MongooseSoftware.Robotics.RobotLib
 
         private PollingThreadState pollingThreadState;
         private Thread pollingThread;
-        private Device joystickDevice;
-        private JoystickState state;
+        //private Device joystickDevice;
+        //private JoystickState state;
 
         #endregion
     }

@@ -10,20 +10,9 @@ using System.Threading;
 
 namespace MongooseSoftware.Robotics.RobotLib.Video
 {
-    public enum CameraState
-    {
-        Connected,
-        Disconnected,
-        Failed
-    }
-
-    public class ImageArrivedEventArgs : EventArgs
-    {
-        public int ImageNumber { get; set; }
-        public long Timestamp { get; set; }
-        public Bitmap Bitmap { get; set; }
-    }
-
+    /// <summary>
+    /// Receives a stream of images sent by uvcstreamer.
+    /// </summary>
     public class Camera : INotifyPropertyChanged
     {
 
@@ -31,6 +20,7 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
         
         const int ImageHeaderMagicNumber = 0x34343434;
         const int MaxQueueSize = 2;
+        const int ImageHeaderSize = 32;
 
         #endregion
 
@@ -39,8 +29,7 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
 
         public Camera()
         {
-            unsafe { imageHeaderSize = sizeof(ImageHeader); }
-            headerBuffer = new byte[imageHeaderSize];
+            headerBuffer = new byte[ImageHeaderSize];
 
             unprocessedImageLock = new object();
             unprocessedImages = new Queue<UnprocessedImage>();
@@ -176,7 +165,7 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
                 switch (current.Format)
                 {
                     case "YUYV":
-                        bitmap = ConvertYUYVToColorBitmap(current);
+                        bitmap = YuyvUtilities.ConvertYUYVToColorBitmap(current.Width, current.Height, current.Data);
                         break;
                     case "MJPG":
                         bitmap = ConvertMJPGToColorBitmap(current);
@@ -237,10 +226,10 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
         {
             // Have we received an entire image header yet?
             numHeaderBytesReceived += args.BytesTransferred;
-            if (numHeaderBytesReceived < imageHeaderSize)
+            if (numHeaderBytesReceived < ImageHeaderSize)
             {
                 // No, so wait till we get some more data.
-                args.SetBuffer(numHeaderBytesReceived, imageHeaderSize - numHeaderBytesReceived);
+                args.SetBuffer(numHeaderBytesReceived, ImageHeaderSize - numHeaderBytesReceived);
                 ReceiveNextPacketAsync(args);
                 return;
             }
@@ -301,51 +290,10 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
             PrepareToReceiveImageHeader(args);
         }
 
-        private static Bitmap ConvertYUYVToColorBitmap(UnprocessedImage unprocessedImage)
-        {
-            var bitmap = new Bitmap(unprocessedImage.Width, unprocessedImage.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-
-            int x = 0, y = 0;
-            for (int i = 0; i < unprocessedImage.Data.Length; i+=4)
-            {
-                byte y1 = unprocessedImage.Data[i];
-                byte u = unprocessedImage.Data[i + 1];
-                byte y2 = unprocessedImage.Data[i + 2];
-                byte v = unprocessedImage.Data[i + 3];
-
-                bitmap.SetPixel(x++, y, ConvertYuv2ToRgb(y1, u, v));
-                bitmap.SetPixel(x++, y, ConvertYuv2ToRgb(y2, u, v));
-
-                if (x ==  unprocessedImage.Width)
-                {
-                    x = 0;
-                    y++;
-                }
-            }
-
-            return bitmap;
-        }
-        
         private static Bitmap ConvertMJPGToColorBitmap(UnprocessedImage unprocessedImage)
         {
             byte[] jpegData = MJpegUtilities.ConvertMJpegBufferToJpeg(unprocessedImage.Data);
             return (Bitmap)Image.FromStream(new MemoryStream(jpegData));
-        }
-
-        static Color ConvertYuv2ToRgb(byte y, byte u, byte v)
-        {
-            var blue =  Clamp(1.164 * (y - 16.0)                      + 2.018 * (u - 128.0));
-            var green = Clamp(1.164 * (y - 16.0) - 0.813 * (v - 128.0) - 0.391 * (u - 128.0));
-            var red =   Clamp(1.164 * (y - 16.0) + 1.596 * (v - 128.0));
-            return Color.FromArgb(red, green, blue);
-        }
-
-        static byte Clamp(double f)
-        {
-            f = Math.Round(f);
-            if (f < 0) return 0;
-            if (f > 255) return 255;
-            return (byte)f;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -363,15 +311,23 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
             public long TimeStamp;
         }
 
-        enum ReceiveState
+        private class UnprocessedImage
+        {
+            public int Width;
+            public int Height;
+            public string Format;
+            public long TimeStamp;
+            public int ImageNumber;
+            public byte[] Data;
+        }
+
+        private enum ReceiveState
         {
             WaitingForImageHeader,
             WaitingForDataBlock
         }
 
         private CameraState state;
-
-        private readonly int imageHeaderSize;
 
         private Socket socket;
         private ReceiveState receiveState;
@@ -384,16 +340,6 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
         private byte[] imageBuffer;
         private int numImagesBytesReceived;
 
-        class UnprocessedImage
-        {
-            public int Width;
-            public int Height;
-            public string Format;
-            public long TimeStamp;
-            public int ImageNumber;
-            public byte[] Data;
-        }
-
         Thread imageProcessingThread;
         private Queue<UnprocessedImage> unprocessedImages;
         private object unprocessedImageLock;
@@ -402,6 +348,20 @@ namespace MongooseSoftware.Robotics.RobotLib.Video
 
         #endregion
 
-
     }
+
+    public enum CameraState
+    {
+        Connected,
+        Disconnected,
+        Failed
+    }
+
+    public class ImageArrivedEventArgs : EventArgs
+    {
+        public int ImageNumber { get; set; }
+        public long Timestamp { get; set; }
+        public Bitmap Bitmap { get; set; }
+    }
+
 }

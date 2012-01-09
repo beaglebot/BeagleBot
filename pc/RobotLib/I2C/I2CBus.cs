@@ -9,34 +9,10 @@ using System.Threading;
 
 namespace MongooseSoftware.Robotics.RobotLib.I2C
 {
+    /// <summary>
 
-    public delegate void PollCallback(int pollID, byte i2cAddress, byte register, int[] values, object data);
-
-    public struct PollEntry
-    {
-        public int PollID;
-        public int Delay;
-        public byte I2CAddress;
-        public byte Register;
-        public int NumRegisters;
-        public PollCallback Callback;
-        public object Data;
-    }
-
-    public enum BusState
-    {
-        Disconnected,
-        Connecting,
-        Connected,
-        Disconnecting
-    }
-
-    public enum DisconnectionReason
-    {
-        UserRequested,
-        ConnectionError
-    }
-
+    /// Provides access to an I2C bus on a remote machine running i2cproxy.
+    /// </summary>
     public class I2CBus : II2CBus
     {
         #region Constants
@@ -53,11 +29,12 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
         {
             pollEntries = new Dictionary<int, PollEntry>();
             stateLock = new object();
+            socketLock = new object();
 
             state = BusState.Disconnected;
             channelConnectEvent = new AutoResetEvent(false);
 
-            pollThread = new Thread(StartPollThread) {Name = "I2c bus Poll Thread"};
+            pollThread = new Thread(StartPollThread) {Name = "I2c Bus Poll Thread"};
             pollThread.Start();
         }
 
@@ -131,10 +108,10 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
             }
 
             try { commandSocket.Close(); }
-            catch (Exception e) { Debug.WriteLine("Error disconnecting command socket: " + e.Message); }
+            catch (SocketException e) { Debug.WriteLine("Error disconnecting command socket: " + e.Message); }
 
             try { pollSocket.Close(); }
-            catch (Exception e) { Debug.WriteLine("Error disconnecting poll socket: " + e.Message); }
+            catch (SocketException e) { Debug.WriteLine("Error disconnecting poll socket: " + e.Message); }
 
             lock (stateLock) State = BusState.Disconnected;
 
@@ -143,7 +120,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
         
         public bool Ping()
         {
-            lock (this)
+            lock (socketLock)
             {
                 try
                 {
@@ -156,7 +133,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public void Set(byte slaveAddress, byte register, byte value)
         {
-            lock (this)
+            lock (socketLock)
             {
                 var request = String.Format("set {0} {1} {2}", slaveAddress, register, value);
                 SendLine(request);
@@ -169,7 +146,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public byte Get(byte slaveAddress, byte register)
         {
-            lock (this)
+            lock (socketLock)
             {
                 var request = String.Format("get {0} {1}", slaveAddress, register);
                 SendLine(request);
@@ -184,7 +161,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public byte[] Get(byte slaveAddress, byte register, int numRegisters)
         {
-            lock (this)
+            lock (socketLock)
             {
                 if (numRegisters < 1 || numRegisters > 255) throw new ArgumentException("numRegisters is invalid");
 
@@ -206,7 +183,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public int AddPoll(int delayInMilliseconds, byte slaveAddress, byte register, int numRegisters, PollCallback pollCallback, object data)
         {
-            lock (this)
+            lock (socketLock)
             {
                 string request = String.Format("addpoll {0} {1} {2} {3}", delayInMilliseconds, slaveAddress, register, numRegisters);
                 SendLine(request);
@@ -225,7 +202,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public void RemovePoll(int pollID)
         {
-            lock (this)
+            lock (socketLock)
             {
                 string request = String.Format("rmpoll {0}", pollID);
                 SendLine(request);
@@ -239,7 +216,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         public void Dispose()
         {
-            shouldFinish = true;
+            shouldStopPollThread = true;
             pollThread.Interrupt();
             pollThread.Join();
             if (commandSocket != null) commandSocket.Close();
@@ -310,7 +287,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         private void SendLine(string s)
         {
-            lock (this)
+            lock (socketLock)
             {
                 Debug.WriteLine("I2CBus.SendLine: " + s);
                 byte[] buffer = Encoding.ASCII.GetBytes(String.Concat(s, "\n"));
@@ -320,7 +297,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
                 {
                     int num;
                     try { num = commandSocket.Send(buffer, totalSent, buffer.Length - totalSent, SocketFlags.None); }
-                    catch (Exception e)
+                    catch (SocketException e)
                     {
                         Debug.WriteLine("Send error: " + e.Message);
                         Disconnect();
@@ -353,7 +330,7 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
 
         private void StartPollThread()
         {
-            while (!shouldFinish)
+            while (!shouldStopPollThread)
             {
                 // Are we connected?
                 if (State != BusState.Connected)
@@ -362,14 +339,14 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
                     try { channelConnectEvent.WaitOne(); }
                     catch (ThreadInterruptedException) { }
                 }
-                if (shouldFinish) break;
+                if (shouldStopPollThread) break;
 
                 // Read a line.
                 string response = null;
                 try { response = pollLineReader.ReadLine(); }
                 catch (ThreadInterruptedException) { }
                 catch (I2CException) { response = null; }
-                if (shouldFinish) break;
+                if (shouldStopPollThread) break;
                 if (response == null)
                 {
                     Disconnect();
@@ -441,10 +418,32 @@ namespace MongooseSoftware.Robotics.RobotLib.I2C
         private Dictionary<int, PollEntry> pollEntries;
         private object stateLock;
         private AutoResetEvent channelConnectEvent;
-        bool shouldFinish;
+        bool shouldStopPollThread;
+        object socketLock;
 
         #endregion
 
+    }
+
+    public delegate void PollCallback(int pollID, byte i2cAddress, byte register, int[] values, object data);
+
+    public struct PollEntry
+    {
+        public int PollID;
+        public int Delay;
+        public byte I2CAddress;
+        public byte Register;
+        public int NumRegisters;
+        public PollCallback Callback;
+        public object Data;
+    }
+
+    public enum BusState
+    {
+        Disconnected,
+        Connecting,
+        Connected,
+        Disconnecting
     }
 
 }
