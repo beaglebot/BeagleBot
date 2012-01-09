@@ -25,6 +25,7 @@ namespace MongooseSoftware.Robotics.RobotLib
         public void Initialize()
 		{
 			// Find all the GameControl devices that are attached.
+            // NOTE: If the debugger stops here with a 'LoaderLock' exception, just exclude the exception in Debug->Exceptions->Managed Debugging Assistants->Loader Lock.
 			DeviceList gameControllerList = Manager.GetDevices(DeviceClass.GameControl, EnumDevicesFlags.AttachedOnly);
 
 			// check that we have at least one device.
