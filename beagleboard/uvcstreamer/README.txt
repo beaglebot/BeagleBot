@@ -12,8 +12,7 @@ image header followed by the raw image data. The image header is defined
 in network.c.
 
 See
-http://yetanotherhackersblog.wordpress.com/2012/01/02/beaglebot-a-board-based-robot/
-
+http://yetanotherhackersblog.wordpress.com/2012/01/03/beaglebot-a-beagleboard-based-robot/
 
 
 

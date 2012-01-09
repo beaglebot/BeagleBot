@@ -13,8 +13,7 @@ synchronously. The poll port is used to return values which the client has asked
 to be polled asynchronously.
 
 See
-http://yetanotherhackersblog.wordpress.com/2012/01/02/beaglebot-a-board-based-robot/
-
+http://yetanotherhackersblog.wordpress.com/2012/01/03/beaglebot-a-beagleboard-based-robot/
 
 
 LICENSE

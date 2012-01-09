@@ -1,8 +1,7 @@
 Copyright (C) 2012 Ben Galvin
 
 Used to control the BeagleBot. See:
-http://yetanotherhackersblog.wordpress.com/2012/01/02/beaglebot-a-board-based-robot/
-
+http://yetanotherhackersblog.wordpress.com/2012/01/03/beaglebot-a-beagleboard-based-robot/
 
 
 LICENSE
