@@ -8,12 +8,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
+using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using MongooseSoftware.Robotics.RobotLib.Components;
+using MongooseSoftware.Robotics.RobotLib.Video;
 
 namespace MongooseSoftware.Robotics.UI
 {
@@ -54,10 +56,13 @@ namespace MongooseSoftware.Robotics.UI
                 try
                 {
                     ignoreConnectedCheckBoxCheckedEvent = true;
-                    if (Robot.Camera.State == ComponentState.Connected)
-                        connectedCheckBox.IsChecked = true;
-                    else if (Robot.Camera.State == ComponentState.Disconnected)
-                        connectedCheckBox.IsChecked = false;
+                    Dispatcher.Invoke((MethodInvoker)(() =>
+                        {
+                            if (Robot.Camera.State == ComponentState.Connected)
+                                connectedCheckBox.IsChecked = true;
+                            else if (Robot.Camera.State == ComponentState.Disconnected)
+                                connectedCheckBox.IsChecked = false;
+                        }));
                 }
                 finally
                 {

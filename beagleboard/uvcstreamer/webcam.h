@@ -29,10 +29,10 @@ struct webcam
 	int frames_already_skipped;
 };
 
-void init_webcam(struct webcam *webcam);
-void start_capturing (struct webcam *webcam);
+int init_webcam(struct webcam *webcam);
+int start_capturing (struct webcam *webcam);
 int process_frame(struct webcam *webcam, int socket);
-void stop_capturing (struct webcam *webcam);
+int stop_capturing (struct webcam *webcam);
 void close_webcam(struct webcam *webcam);
 
 #endif

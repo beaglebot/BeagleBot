@@ -134,9 +134,6 @@ int main (int argc, char ** argv)
 
 	read_arguments(argc, argv, &webcam, &port);
 
-	printf("Initializing webcam\n");
-	init_webcam(&webcam);
-
 	printf("Opening TCP port\n");
 	socket = create_and_bind_tcp_socket(port);
 
@@ -153,16 +150,22 @@ int main (int argc, char ** argv)
 		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), client, sizeof client);
 		printf("Accepted connection from %s\n", client); 
 
-		start_capturing(&webcam);
+		printf("Initializing webcam\n");
+		if (init_webcam(&webcam) == -1) goto Cleanup;
+
+		if (start_capturing(&webcam) == -1) goto Cleanup;
+
 		while (process_frame(&webcam, accepted_socket) != -1);
 		stop_capturing(&webcam);
 
+Cleanup:
+		printf("Closing camera\n");
+		close_webcam(&webcam);
+
+		printf("Closing connection\n");
 		close(accepted_socket);
-		printf("Connection closed\n");
 	}
 
-	printf("Closing camera\n");
-	close_webcam(&webcam);
 	close(socket);
 
 	printf("Done.\n");

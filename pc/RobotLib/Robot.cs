@@ -27,7 +27,7 @@ namespace MongooseSoftware.Robotics.RobotLib
         protected Robot()
         {
             watchdogThread = new Thread(WatchDogThreadMain) {Name = "Robot Watchdog", IsBackground = true};
-            //watchdogThread.Start();
+            watchdogThread.Start();
         }
 
 
@@ -109,10 +109,10 @@ namespace MongooseSoftware.Robotics.RobotLib
                         {
                             Debug.WriteLine(String.Format("Component {0} appears to be missing. Attempting to disconnect.", component.Name));
                             component.Disconnect();
-                            component.State = ComponentState.Missing;
+                            component.State = ComponentState.Failed;
                         }
                     }
-                    else if (component.State == ComponentState.Missing)
+                    else if (component.State == ComponentState.Failed)
                     {
                         if (component.CheckIfPossibleToConnect())
                         {

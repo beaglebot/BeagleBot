@@ -31,7 +31,7 @@ static int xioctl(int fd, int request, void *arg)
 	return r;
 }
 
-static void init_mmap(struct webcam *webcam)
+static int init_mmap(struct webcam *webcam)
 {
 	struct v4l2_requestbuffers req;
 	int i;
@@ -41,20 +41,26 @@ static void init_mmap(struct webcam *webcam)
 	req.count = 4;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
-	if (-1 == xioctl(webcam->fd, VIDIOC_REQBUFS, &req)) {
-		if (EINVAL == errno) {
-			fatal("%s does not support memory mapping", webcam->device_path);
+	if (xioctl(webcam->fd, VIDIOC_REQBUFS, &req) == -1) {
+		if (errno == EINVAL) {
+			fprintf(stderr, "ERROR => %s does not support memory mapping. The error was: %s\n", 
+					webcam->device_path, strerror(errno));
+			return -1;
 		}
-		fatal_errno("VIDIOC_REQBUFS");
+		fprintf(stderr, "ERROR => Error calling REQBUFS on %s. The error was: %s\n", 
+				webcam->device_path, strerror(errno));
+		return -1;
 	}
 	if (req.count < 2) {
-		fatal("Insufficient buffer memory on %s", webcam->device_path);
+		fprintf(stderr, "ERROR => Insufficient buffer memory on %s\n", webcam->device_path);
+		return -1;
 	}
 
 	// Allocate the buffers.
 	webcam->buffers = calloc(req.count, sizeof (*webcam->buffers));
 	if (!webcam->buffers) {
-		fatal("Out of memory");
+		fprintf(stderr, "ERROR => Out of memory.\n");
+		return -1;
 	}
 
 	// Do the memory mapping.
@@ -65,14 +71,16 @@ static void init_mmap(struct webcam *webcam)
 		buf.type        = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory      = V4L2_MEMORY_MMAP;
 		buf.index       = i;
-		if (-1 == xioctl (webcam->fd, VIDIOC_QUERYBUF, &buf)) {
-			fatal_errno("VIDIOC_QUERYBUF");
+		if (xioctl (webcam->fd, VIDIOC_QUERYBUF, &buf) == -1) {
+			perror("ERROR => Error calling VIDIOC_QUERYBUF. The error was: ");
+			return -1;
 		}
 
 		webcam->buffers[i].length = buf.length;
 		webcam->buffers[i].start = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, webcam->fd, buf.m.offset);
-		if (MAP_FAILED == webcam->buffers[i].start) {
-			fatal_errno("mmap");
+		if (webcam->buffers[i].start == MAP_FAILED) {
+			perror("ERROR => Error doing memory mapping. The error was: ");
+			return -1;
 		}
 	}
 
@@ -103,7 +111,7 @@ static void float_to_fraction(float f, int *num, int *den)
 	*num += whole * *den;
 }
 
-void init_webcam(struct webcam *webcam)
+int init_webcam(struct webcam *webcam)
 {
 	int n, d;
 	struct v4l2_capability cap;
@@ -116,32 +124,39 @@ void init_webcam(struct webcam *webcam)
 
 	// Check the device path looks sane.
 	if (-1 == stat(webcam->device_path, &st)) {
-		fatal("Cannot identify '%s': %d, %s", webcam->device_path, errno, strerror(errno));
+		fprintf(stderr, "ERROR => Cannot identify '%s': %d, %s\n", webcam->device_path, errno, strerror(errno));
+		return -1;
 	}
 
 	if (!S_ISCHR (st.st_mode)) {
-		fatal("%s is not a character device", webcam->device_path);
+		fprintf(stderr, "ERROR => %s is not a character device\n", webcam->device_path);
+		return -1;
 	}
 
 	webcam->fd = open(webcam->device_path, O_RDWR | O_NONBLOCK, 0);
 	if (-1 == webcam->fd) {
-		fatal("Cannot open '%s': %d, %s", webcam->device_path, errno, strerror(errno));
+		fprintf(stderr, "ERROR => Cannot open '%s': %d, %s\n", webcam->device_path, errno, strerror(errno));
+		return -1;
 	}
 
 	// Check the webcam is capable of streaming video.
 	if (-1 == xioctl (webcam->fd, VIDIOC_QUERYCAP, &cap)) {
 		if (EINVAL == errno) {
-			fatal("%s is not a V4L2 device", webcam->device_path);
+			fprintf(stderr, "ERROR => %s is not a V4L2 device\n", webcam->device_path);
+			return -1;
 		}
-		fatal_errno("VIDIOC_QUERYCAP");
+		perror("ERROR => Error calling VIDIOC_QUERYCAP. The error was: ");
+		return -1;
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-		fatal("%s is no video capture device", webcam->device_path);
+		fprintf(stderr, "ERROR => %s is no video capture device.\n", webcam->device_path);
+		return -1;
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
-		fatal( "%s does not support streaming i/o", webcam->device_path);
+		fprintf(stderr, "ERROR => %s does not support streaming i/o\n", webcam->device_path);
+		return -1;
 	}
 
 	// Work out the pixel format.
@@ -158,7 +173,8 @@ void init_webcam(struct webcam *webcam)
 	fmt.fmt.pix.height      = webcam->height;
 	fmt.fmt.pix.pixelformat = format; 
 	if (-1 == xioctl(webcam->fd, VIDIOC_S_FMT, &fmt)) {
-		fatal("Pixel format not supported");
+		perror("ERROR => Pixel format not supported. The error was: ");
+		return -1;
 	}
 	webcam->size = fmt.fmt.pix.sizeimage;
 
@@ -170,7 +186,8 @@ void init_webcam(struct webcam *webcam)
 	setfps.parm.capture.timeperframe.denominator = n;
 	int ret = xioctl(webcam->fd, VIDIOC_S_PARM, &setfps);
 	if(ret == -1) {
-		fatal("Unable to set frame rate");
+		perror("ERROR => Unable to set frame rate. The error was: ");
+		return -1;
 	}
 
 	// Ask for the framerate, to make sure it was set correctly.
@@ -180,29 +197,32 @@ void init_webcam(struct webcam *webcam)
 			/ (float)setfps.parm.capture.timeperframe.numerator;
 
 		if (confirmed_fps != (float)n / (float)d) {
-			fatal("Requested frame rate %g fps is not supported", webcam->framerate);
+			fprintf(stderr, "ERROR => Requested frame rate %g fps is not supported\n", webcam->framerate);
 		}
 	}
 	else {
-		fatal("Unable to read current frame rate");
+		perror("ERROR => Unable to read current frame rate. The error was: ");
 	}
 
 	// Set the quality.
 	if (webcam->quality >= 0 && webcam->quality <= 100) {
 		memset(&quality, 0, sizeof(quality));
 		if (xioctl(webcam->fd, VIDIOC_G_JPEGCOMP, &quality) == -1) {
-			fatal("Unable to get jpeg quality info");
+			perror("ERROR => Unable to get jpeg quality info. The error was: ");
 		}
 		quality.quality = webcam->quality;
 		if (xioctl(webcam->fd, VIDIOC_S_JPEGCOMP, &quality) == -1) {
-			fatal("Unable to set jpeg quality info");
+			perror("ERROR => Unable to set jpeg quality info. The error was: ");
 		}
 	}
 
 	// Create the memory mapped buffers which will be used to received the frames.
-	init_mmap(webcam);
+	ret = init_mmap(webcam);
+	if (ret == -1) return -1;
 	
-	webcam->state = INITIALIZED;	
+	webcam->state = INITIALIZED;
+
+	return 0;
 }
 
 int process_frame(struct webcam *webcam, int socket)
@@ -220,14 +240,15 @@ int process_frame(struct webcam *webcam, int socket)
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 	res = select(webcam->fd + 1, &fds, NULL, NULL, &tv);
-	if (-1 == res) {
-		if (EINTR == errno) return;
-		fatal_errno("select");
+	if (res == -1) {
+		if (EINTR == errno) return 0;
+		perror("ERROR => Error calling select. The error was ");
+		return -1;
 	}
 
-	if (0 == res) {
-		fprintf(stderr, "Timeout waiting for frame.");
-		return;
+	if (res == 0) {
+		fprintf(stderr, "ERROR => Timeout waiting for frame.\n");
+		return 0;
 	}
 
 	// Grab the buffer with the new frame.
@@ -239,12 +260,11 @@ int process_frame(struct webcam *webcam, int socket)
 		switch (errno) 
 		{
 			case EAGAIN:
-				return;
-
-			case EIO://EIO ignored
+				return 0;
 
 			default:
-				fatal_errno("VIDIOC_DQBUF");
+				perror("ERROR => Error calling VIDIOC_DQBUF. The error was ");
+				return -1;
 		}
 	}
 	assert(buf.index < webcam->numbuffers);
@@ -255,8 +275,9 @@ int process_frame(struct webcam *webcam, int socket)
 		res = write_image(webcam->buffers[buf.index].start, webcam->buffers[buf.index].length, webcam, socket);
 	}
 
-	if (-1 == xioctl (webcam->fd, VIDIOC_QBUF, &buf)) {
-		fatal_errno("VIDIOC_QBUF");
+	if (xioctl (webcam->fd, VIDIOC_QBUF, &buf) == -1) {
+		perror("ERROR => Error calling VIDIOC_QBUF. The error was ");
+		return -1;
 	}
 
 	if (res == -1) return -1;
@@ -264,7 +285,7 @@ int process_frame(struct webcam *webcam, int socket)
 	return 0;
 }
 
-void start_capturing(struct webcam *webcam)
+int start_capturing(struct webcam *webcam)
 {
 	enum v4l2_buf_type type;
 	int i;
@@ -276,8 +297,9 @@ void start_capturing(struct webcam *webcam)
 		buf.type        = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory      = V4L2_MEMORY_MMAP;
 		buf.index       = i;
-		if (-1 == xioctl (webcam->fd, VIDIOC_QBUF, &buf)) {
-			fatal_errno("VIDIOC_QBUF");
+		if (xioctl (webcam->fd, VIDIOC_QBUF, &buf) == -1) {
+			perror("ERROR => Error calling VIDIOC_QBUF. Error was: ");
+			return -1;
 		}
 	}
 
@@ -286,36 +308,42 @@ void start_capturing(struct webcam *webcam)
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (-1 == xioctl (webcam->fd, VIDIOC_STREAMON, &type)) {
-		fatal_errno("VIDIOC_STREAMON");
+		perror("ERROR => Error calling VIDIOC_STREAMON. The error was: ");
+		return -1;
 	}
+
+	return 0;
 }
 
-void stop_capturing(struct webcam *webcam)
+int stop_capturing(struct webcam *webcam)
 {
 	enum v4l2_buf_type type;
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	if (-1 == xioctl(webcam->fd, VIDIOC_STREAMOFF, &type)) {
-		fatal_errno("VIDIOC_STREAMOFF");
+		perror("ERROR => Error calling VIDIOC_STREAMOFF. The error was: ");
+		return -1;
 	}
 
 	webcam->state = INITIALIZED;
+
+	return 0;
 }
 
 void close_webcam(struct webcam *webcam)
 {
 	int i;
 
-	if (-1 == close(webcam->fd)) {
-		fatal_errno("close");
-	}
-
 	for (i = 0; i < webcam->numbuffers; ++i) {
 		if (-1 == munmap (webcam->buffers[i].start, webcam->buffers[i].length)) {
-			fatal_errno("munmap");
+			perror("ERROR => Error calling munmap. The error was: ");
 		}
 	}
 
 	free(webcam->buffers);
+
+	if (close(webcam->fd) == -1) {
+		perror("ERROR -> Error closing file. The error was: ");
+	}
 
 	webcam->fd = -1;
 	webcam->buffers = 0;

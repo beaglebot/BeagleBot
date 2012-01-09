@@ -19,15 +19,15 @@ namespace MongooseSoftware.Robotics.RobotLib
 
         public Beagle()
         {
-            I2CBus = new I2CBus();
-            ServoController = new ServoController();
-            MotorController = new MotorController();
-            PowerSupplyController = new PowerSupplyController();
-            BatteryMonitorA = new BatteryMonitor("A", 0x35);
-            BatteryMonitorB = new BatteryMonitor("B", 0x34);
-            IMU = new IMU();
-            Camera = new Camera();
-            UltrasonicRangeFinder = new UltrasonicRangeFinder();
+            I2CBus = new I2CBusComponent();
+            ServoController = new ServoComponent();
+            MotorController = new MotorControllerComponent();
+            PowerSupplyController = new PowerSupplyComponent();
+            BatteryMonitorA = new BatteryMonitorComponent("A", 0x35);
+            BatteryMonitorB = new BatteryMonitorComponent("B", 0x34);
+            IMU = new ImuComponent();
+            Camera = new CameraComponent();
+            UltrasonicRangeFinder = new UltrasonicRangeFinderComponent();
         }
 
 
@@ -39,13 +39,13 @@ namespace MongooseSoftware.Robotics.RobotLib
         public override void Init()
         {
             base.Init();
-            ServoController.I2CChannel = I2CBus.Channel;
-            MotorController.I2CChannel = I2CBus.Channel;
-            PowerSupplyController.I2CChannel = I2CBus.Channel;
-            BatteryMonitorA.I2CChannel = I2CBus.Channel;
-            BatteryMonitorB.I2CChannel = I2CBus.Channel;
-            IMU.I2CChannel = I2CBus.Channel;
-            UltrasonicRangeFinder.I2CChannel = I2CBus.Channel;
+            ServoController.I2CBus = I2CBus.Bus;
+            MotorController.I2CBus = I2CBus.Bus;
+            PowerSupplyController.I2CBus = I2CBus.Bus;
+            BatteryMonitorA.I2CBus = I2CBus.Bus;
+            BatteryMonitorB.I2CBus = I2CBus.Bus;
+            IMU.I2CBus = I2CBus.Bus;
+            UltrasonicRangeFinder.I2CBus = I2CBus.Bus;
         }
 
         #endregion
@@ -102,55 +102,55 @@ namespace MongooseSoftware.Robotics.RobotLib
             }
         }
 
-        public I2CBus I2CBus
+        public I2CBusComponent I2CBus
         {
             get;
             private set;
         }
 
-        public MotorController MotorController
+        public MotorControllerComponent MotorController
         {
             get;
             private set;
         }
 
-        public ServoController ServoController
+        public ServoComponent ServoController
         {
             get;
             private set;
         }
 
-        public PowerSupplyController PowerSupplyController
+        public PowerSupplyComponent PowerSupplyController
         {
             get;
             private set;
         }
 
-        public BatteryMonitor BatteryMonitorA
+        public BatteryMonitorComponent BatteryMonitorA
         {
             get;
             private set;
         }
 
-        public BatteryMonitor BatteryMonitorB
+        public BatteryMonitorComponent BatteryMonitorB
         {
             get;
             private set;
         }
 
-        public IMU IMU
+        public ImuComponent IMU
         {
             get;
             private set;
         }
 
-        public Camera Camera
+        public CameraComponent Camera
         {
             get;
             private set;
         }
 
-        public UltrasonicRangeFinder UltrasonicRangeFinder
+        public UltrasonicRangeFinderComponent UltrasonicRangeFinder
         {
             get;
             private set;

@@ -5,17 +5,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <linux/i2c-dev.h>
+//#include <pthread.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "i2c.h"
+#include "i2c-dev.h"
 
 // It looks like bad things happen if you attempt to read and write to the same I2C bus
 // at the same time, even through different handles.
-pthread_mutex_t i2c_mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t i2c_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int open_i2c(int bus, bool quiet) {
 	char devicePath[20];
@@ -34,95 +34,77 @@ int open_i2c(int bus, bool quiet) {
 }
 
 int read_i2c(int handle, uint8_t address, uint8_t reg, bool quiet) {
-	uint8_t buf[1];
+	__s32 r;
 
 	if (!quiet) printf("Reading from I2C at address %d, register=%d\n", address, reg);
 
-	pthread_mutex_lock(&i2c_mutex);
+	//pthread_mutex_lock(&i2c_mutex);
 
 	if (ioctl(handle, I2C_SLAVE, address) < 0) {
 		if (!quiet) perror("Failed setting slave address"); 
-		pthread_mutex_unlock(&i2c_mutex);
+		//pthread_mutex_unlock(&i2c_mutex);
 		return -1;
 	}
 
-	buf[0] = reg;
-	if (!quiet) printf("  Writing register %d to I2C bus\n", reg);
-	if (write(handle, buf, 1) != 1) {
-		if (!quiet) perror("Failed to write register to I2C bus"); 
-		pthread_mutex_unlock(&i2c_mutex);
+	r = i2c_smbus_read_byte_data(handle, reg);
+	if (r < 0) {
+		if (!quiet) perror("Failed to read value from I2C bus"); 
+		//pthread_mutex_unlock(&i2c_mutex);
 		return -1;
 	}
 
-	if (!quiet) printf("  Reading register value from I2C bus\n");
-	if (read(handle, buf, 1) != 1) {
-		if (!quiet) perror("Failed to read value from the I2C bus"); 
-		pthread_mutex_unlock(&i2c_mutex);
-		return -1;
-	}
-	pthread_mutex_unlock(&i2c_mutex);
+	if (!quiet) printf("  Read i2c value %d\n", r);
 
-	if (!quiet) printf("  Read i2c value %d\n", buf[0]);
-
-	return buf[0];
+	return r;
 }
 
 int read_i2c_multiple(int handle, uint8_t address, uint8_t reg, int count, bool quiet, uint8_t *result) {
-	uint8_t buf[1];
+	__s32 r;
 
 	if (!quiet) printf("Reading from I2C at address %d, register=%d\n", address, reg);
 
-	pthread_mutex_lock(&i2c_mutex);
+	//pthread_mutex_lock(&i2c_mutex);
 
 	if (ioctl(handle, I2C_SLAVE, address) < 0) {
 		if (!quiet) perror("Failed setting slave address"); 
-		pthread_mutex_unlock(&i2c_mutex);
-		return -1;
-	}
-
-	buf[0] = reg;
-	if (!quiet) printf("  Writing register %d to I2C bus\n", reg);
-	if (write(handle, buf, 1) != 1) {
-		if (!quiet) perror("Failed to write register to I2C bus"); 
-		pthread_mutex_unlock(&i2c_mutex);
+		//pthread_mutex_unlock(&i2c_mutex);
 		return -1;
 	}
 
 	if (!quiet) printf("  Reading register values from I2C bus\n");
-	if (read(handle, result, count) != count) {
+	r = i2c_smbus_read_i2c_block_data(handle, reg, count, result);
+	if (r < 0) {
 		if (!quiet) perror("Failed to read value from the I2C bus"); 
-		pthread_mutex_unlock(&i2c_mutex);
+		//pthread_mutex_unlock(&i2c_mutex);
 		return -1;
 	}
-	pthread_mutex_unlock(&i2c_mutex);
+	//pthread_mutex_unlock(&i2c_mutex);
 
 	return 0;
 }
 
-int write_i2c(int file, uint8_t address, uint8_t reg, uint8_t value, bool quiet) {
-	uint8_t buf[2];
+int write_i2c(int handle, uint8_t address, uint8_t reg, uint8_t value, bool quiet) {
+	__s32 r;
 
 	if (!quiet) printf("Writing value %d to I2C at address=%d, register=%d\n", value, address, reg);
 	if (!quiet) printf("  Setting slave address to %d\n", address);
 
-	pthread_mutex_lock(&i2c_mutex);
+	//pthread_mutex_lock(&i2c_mutex);
 
-	if (ioctl(file, I2C_SLAVE, address) < 0) {
-		pthread_mutex_unlock(&i2c_mutex);
+	if (ioctl(handle, I2C_SLAVE, address) < 0) {
+		//pthread_mutex_unlock(&i2c_mutex);
 		if (!quiet) perror("ERROR: Failed setting slave address\n"); 
 		return -1;
 	}
 
 	if (!quiet) printf("  Writing register %d and value %d to I2C bus\n", reg, value);
-	buf[0] = reg;
-	buf[1] = value;
-	if (write(file, buf, 2) != 2) {
-		pthread_mutex_unlock(&i2c_mutex);
+	r = i2c_smbus_write_byte_data(handle, reg, value);
+	if (r < 0) {
 		if (!quiet) perror("ERROR:Failed to write register and value to the I2C bus\n"); 
 		return -1;
 	}
 
-	pthread_mutex_unlock(&i2c_mutex);
+	//pthread_mutex_unlock(&i2c_mutex);
 	
 	if (!quiet) printf("  Write successful\n");
 

@@ -139,9 +139,10 @@ namespace MongooseSoftware.Robotics.UI
             }
         }
 
+        DateTime lastUpdate;
         private void UserControl_MouseMove(object sender, MouseEventArgs e)
         {
-            if (CapturedMouse)
+            if (CapturedMouse && (DateTime.Now - lastUpdate).TotalMilliseconds > 100)
             {
                 Point mousePosition = e.GetPosition(this);
                 Vector vector = Point.Subtract(mousePosition, Center);
@@ -150,6 +151,7 @@ namespace MongooseSoftware.Robotics.UI
                 CurrentAngle = Math.Atan2(vector.X, -vector.Y);
                 if (CurrentAngle < 0) CurrentAngle += 2 * Math.PI;
                 CalculateEngineParameters();
+                lastUpdate = DateTime.Now;
                 InvalidateVisual();
             }
         }

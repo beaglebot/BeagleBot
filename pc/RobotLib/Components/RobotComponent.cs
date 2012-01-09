@@ -8,7 +8,6 @@ namespace MongooseSoftware.Robotics.RobotLib.Components
     public enum ComponentState
     {
         None,
-        Missing,
         Failed,
         Disconnected,
         Connected,
@@ -42,7 +41,7 @@ namespace MongooseSoftware.Robotics.RobotLib.Components
 
             if (!CheckIfPossibleToConnect())
             {
-                State = ComponentState.Missing;
+                State = ComponentState.Failed;
                 return false;
             }
 
@@ -55,7 +54,7 @@ namespace MongooseSoftware.Robotics.RobotLib.Components
 
             if (!success)
             {
-                State = ComponentState.Missing;
+                State = ComponentState.Failed;
                 return false;
             }
 
@@ -78,7 +77,6 @@ namespace MongooseSoftware.Robotics.RobotLib.Components
 
         public virtual void Disconnect()
         {
-            if (State != ComponentState.Connected) throw new InvalidOperationException("State should be Connected.");
         }
 
         public virtual void Dispose()
